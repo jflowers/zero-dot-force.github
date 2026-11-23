@@ -1,0 +1,35 @@
+# Repo override: snake-eyes.
+#
+# snake-eyes releases through its `release.yml` workflow
+# (workflow_dispatch with a tag input), like gaze: the org-infra release
+# preflight creates the v* tag with the workflow's GITHUB_TOKEN, then the
+# publish job uploads to PyPI via trusted publishing.
+#
+# NOTE: repo-scoped rulesets are fully managed by safe-settings. Any
+# repo-level ruleset on snake-eyes not declared here or in
+# suborgs/code-repos.yml is removed on sync.
+
+rulesets:
+  # Release tags are immutable: once a v* tag exists it cannot be deleted
+  # or moved. Creation is allowed, so the release workflow's GITHUB_TOKEN
+  # can create the tag (GitHub does not accept the GitHub Actions app as a
+  # ruleset bypass actor). Org admins may bypass to repair a bad tag.
+  # Matches gaze/dewey/replicator and reading-stone.
+  - name: release-tag-protection
+    target: tag
+    enforcement: active
+
+    conditions:
+      ref_name:
+        include:
+          - "refs/tags/v*"
+        exclude: []
+
+    bypass_actors:
+      - actor_id: null
+        actor_type: OrganizationAdmin
+        bypass_mode: always
+
+    rules:
+      - type: deletion
+      - type: non_fast_forward

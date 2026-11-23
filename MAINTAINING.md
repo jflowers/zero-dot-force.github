@@ -20,6 +20,7 @@ GitHub organization using two complementary tools: **peribolos** and
 | Dependabot alerts and fixes | safe-settings | `safe-settings/settings.yml` |
 | Branch protection rules | safe-settings | `safe-settings/settings.yml` |
 | Rulesets | safe-settings | `safe-settings/settings.yml` |
+| Repo-scoped rulesets, environments | safe-settings | `safe-settings/repos/<repo>.yml` |
 | `.github` repo ruleset | **manual** | GitHub UI |
 
 **Why two tools?** Peribolos manages org-level concerns (who is a member,

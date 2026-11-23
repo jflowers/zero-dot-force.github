@@ -3,8 +3,8 @@
 # reading-stone releases through its `release.yml` workflow
 # (workflow_dispatch with a `tag` input), like gaze. The workflow creates
 # the v* tag itself, then stages the npm package from the `npm` environment via
-# npm trusted publishing. The npm trust relationship pins that workflow
-# filename and environment name.
+# npm trusted publishing, and creates the GitHub release. The npm trust
+# relationship pins that workflow filename and environment name.
 #
 # Both settings below previously existed only as manual changes on the
 # repo; this file makes them declarative.
@@ -42,13 +42,14 @@ rulesets:
 environments:
   # Gate for the release workflow's stage job. A dispatched run's ref is
   # the branch it runs from (not the tag it creates), so deployments are
-  # limited to main. Each run needs a maintainer's approval.
+  # limited to main. No required reviewers: the npm trust relationship is
+  # stage-only and the package requires 2FA, so a maintainer's 2FA
+  # approval on npm is the release's one human gate. The environment
+  # stays because the trust relationship names it.
   - name: npm
     wait_timer: 0
     prevent_self_review: false
-    reviewers:
-      - type: User
-        id: 214084  # jflowers
+    reviewers: []
     deployment_branch_policy:
       protected_branches: false
       custom_branch_policies:

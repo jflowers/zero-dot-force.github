@@ -34,89 +34,52 @@ repository:
     enableVulnerabilityAlerts: true
     enableAutomatedSecurityFixes: true
 
-# Standard labels across all repos
+# Standard labels across all repos. Additive only: the catch-all
+# exclude keeps safe-settings from deleting labels it does not declare
+# (e.g. reading-stone's `blog`, gh-hud's `hold`). Treat label deletion
+# as a separately reviewed change.
 labels:
-  - name: bug
-    color: d73a4a
-    description: Something isn't working
+  include:
+    - name: bug
+      color: d73a4a
+      description: Something isn't working
 
-  - name: documentation
-    color: 0075ca
-    description: Improvements or additions to documentation
+    - name: documentation
+      color: 0075ca
+      description: Improvements or additions to documentation
 
-  - name: duplicate
-    color: cfd3d7
-    description: This issue or pull request already exists
+    - name: duplicate
+      color: cfd3d7
+      description: This issue or pull request already exists
 
-  - name: enhancement
-    color: a2eeef
-    description: New feature or request
+    - name: enhancement
+      color: a2eeef
+      description: New feature or request
 
-  - name: good first issue
-    color: '7057ff'
-    description: Good for newcomers
+    - name: good first issue
+      color: '7057ff'
+      description: Good for newcomers
 
-  - name: help wanted
-    color: '008672'
-    description: Extra attention is needed
+    - name: help wanted
+      color: '008672'
+      description: Extra attention is needed
 
-  - name: invalid
-    color: e4e669
-    description: This doesn't seem right
+    - name: invalid
+      color: e4e669
+      description: This doesn't seem right
 
-  - name: question
-    color: d876e3
-    description: Further information is requested
+    - name: question
+      color: d876e3
+      description: Further information is requested
 
-  - name: wontfix
-    color: ffffff
-    description: This will not be worked on
+    - name: wontfix
+      color: ffffff
+      description: This will not be worked on
 
-# Rulesets applied at the org level.
-# These create GitHub rulesets visible under Settings > Rules > Rulesets.
-rulesets:
-  # Ruleset for code repositories — strict branch protection.
-  - name: "safe-settings: code repos"
-    target: branch
-    enforcement: active
+  exclude:
+    - name: ".*"
 
-    conditions:
-      ref_name:
-        include:
-          - "~DEFAULT_BRANCH"
-        exclude: []
-      repository_name:
-        include:
-          - reading-stone
-          - snake-eyes
-        exclude: []
-
-    rules:
-      # Restrict creation of refs matching the default branch pattern.
-      # Prevents recreating the default branch if deleted.
-      - type: creation
-
-      # Prevent deletion of the default branch.
-      - type: deletion
-
-      # Prevent force pushes to the default branch.
-      - type: non_fast_forward
-
-      # Pull request requirements.
-      # Baseline: 1 approver, dismiss stale reviews, code owner review,
-      # last push approval.
-      - type: pull_request
-        parameters:
-          required_approving_review_count: 1
-          dismiss_stale_reviews_on_push: true
-          require_code_owner_review: true
-          require_last_push_approval: true
-          required_review_thread_resolution: false
-
-      # Preserve any status checks configured outside of safe-settings
-      # (e.g., via individual repo workflow configurations).
-      - type: required_status_checks
-        parameters:
-          strict_required_status_checks_policy: true
-          required_status_checks:
-            - context: "{{EXTERNALLY_DEFINED}}"
+# No org-level rulesets: zero-dot-force is on the GitHub Free plan, where
+# org rulesets are unavailable (the API returns "Upgrade to GitHub Team").
+# Branch rulesets are repo-scoped and live in the suborg files instead
+# (see suborgs/code-repos.yml).

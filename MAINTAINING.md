@@ -18,8 +18,8 @@ GitHub organization using two complementary tools: **peribolos** and
 | Repo auto-merge, delete-branch | safe-settings | `safe-settings/settings.yml` |
 | Repo has_wiki | safe-settings | `safe-settings/settings.yml` |
 | Dependabot alerts and fixes | safe-settings | `safe-settings/settings.yml` |
-| Branch protection rules | safe-settings | `safe-settings/settings.yml` |
-| Rulesets | safe-settings | `safe-settings/settings.yml` |
+| Branch protection rules | safe-settings | `safe-settings/suborgs/<suborg>.yml` |
+| Rulesets (repo-scoped) | safe-settings | `safe-settings/suborgs/<suborg>.yml` |
 | Repo-scoped rulesets, environments | safe-settings | `safe-settings/repos/<repo>.yml` |
 | `.github` repo ruleset | **manual** | GitHub UI |
 
@@ -72,8 +72,12 @@ every PR via CI.
 
 ### Change Branch Protection Rules or Rulesets
 
-1. Edit `safe-settings/settings.yml` -- modify the ruleset under `rulesets`.
-2. The `safe-settings: code repos` ruleset applies to code repos.
+1. Edit `safe-settings/suborgs/code-repos.yml` -- modify the ruleset
+   under `rulesets`. It is created as a repo-scoped ruleset on each repo
+   in the suborg.
+2. Do NOT add `rulesets` to `safe-settings/settings.yml`: that creates
+   org-level rulesets, which need GitHub Team (zero-dot-force is on
+   Free). A boundary test enforces this.
 3. Submit a PR and merge.
 4. Trigger `workflow_dispatch` to apply.
 
@@ -230,7 +234,10 @@ Common causes:
 The workflow includes a patched `full-sync.js` to work around a bug
 in safe-settings where `handleResults` crashes in full-sync mode
 because `payload.check_suite` is undefined outside the webhook flow
-(the sync itself completes; only the Check Run reporting fails).
+(the sync itself completes; only the Check Run reporting fails). The
+patch replaces `handleResults` to log the results and fail the step
+when any plugin returns an error, so a failed sync never reports
+success.
 
 - **Upstream issue**:
   [github-community-projects/safe-settings#818](https://github.com/github-community-projects/safe-settings/issues/818)

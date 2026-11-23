@@ -7,7 +7,8 @@
 //   - All repos in suborg files exist in org/config.yaml
 //   - No repo appears in multiple suborg files
 //   - Safe-settings config does not set fields owned by peribolos
-//   - Suborg repo lists match ruleset repository_name conditions
+//   - No org-level rulesets (unavailable on the GitHub Free plan)
+//   - Repo-scoped rulesets carry no repository_name condition
 package config
 
 import (
@@ -342,14 +343,9 @@ func TestBoundary_PeribolosNoSafeSettingsFields(t *testing.T) {
 	}
 }
 
-func TestBoundary_SuborgReposMatchRulesetConditions(t *testing.T) {
+func TestBoundary_NoOrgRulesets(t *testing.T) {
 	if _, err := os.Stat(safeSettingsDir); os.IsNotExist(err) {
 		t.Skip("safe-settings directory not found, skipping boundary tests")
-	}
-
-	suborgs, err := loadSuborgs(safeSettingsDir)
-	if err != nil {
-		t.Fatalf("failed to load suborgs: %v", err)
 	}
 
 	settings, err := loadSettings(safeSettingsDir)
@@ -357,55 +353,48 @@ func TestBoundary_SuborgReposMatchRulesetConditions(t *testing.T) {
 		t.Fatalf("failed to load settings: %v", err)
 	}
 
-	// Build a map of suborg name (without extension) to repo set
-	suborgRepoSets := make(map[string]map[string]bool)
-	for fileName, repos := range suborgs {
-		name := strings.TrimSuffix(fileName, ".yml")
-		repoSet := make(map[string]bool)
-		for _, r := range repos {
-			repoSet[r] = true
-		}
-		suborgRepoSets[name] = repoSet
+	// zero-dot-force is on the GitHub Free plan, where org-level rulesets
+	// are unavailable. Rulesets in settings.yml are applied org-scoped and
+	// fail every sync, so they must live in suborg or repo files instead.
+	for _, rs := range settings.Rulesets {
+		t.Errorf("settings.yml defines org-level ruleset %q; org rulesets need GitHub Team -- move it to a suborg or repo file", rs.Name)
+	}
+}
+
+func TestBoundary_RepoScopedRulesetsHaveNoRepositoryCondition(t *testing.T) {
+	if _, err := os.Stat(safeSettingsDir); os.IsNotExist(err) {
+		t.Skip("safe-settings directory not found, skipping boundary tests")
 	}
 
-	// For each ruleset, check if its repository_name.include matches a
-	// suborg. The naming convention is "safe-settings: <group>" where
-	// <group> corresponds to a suborg file name (with hyphens replaced
-	// by spaces). E.g., "safe-settings: code repos" matches "code-repos.yml".
-	for _, rs := range settings.Rulesets {
-		if rs.Conditions.RepositoryName == nil {
-			continue
-		}
-
-		rulesetRepos := make(map[string]bool)
-		for _, r := range rs.Conditions.RepositoryName.Include {
-			rulesetRepos[r] = true
-		}
-
-		// Normalize the ruleset name for matching: strip the
-		// "safe-settings: " prefix, then replace spaces with hyphens
-		// to match suborg file names (e.g., "code repos" -> "code-repos").
-		normalized := strings.TrimPrefix(rs.Name, "safe-settings: ")
-		normalized = strings.ReplaceAll(normalized, " ", "-")
-
-		for suborgName, suborgRepos := range suborgRepoSets {
-			if normalized != suborgName {
+	// Suborg and repo files create repo-scoped rulesets, which the GitHub
+	// API rejects with a repository_name condition. Repo targeting comes
+	// from suborgrepos / the file name instead.
+	for _, sub := range []string{"suborgs", "repos"} {
+		dir := filepath.Join(safeSettingsDir, sub)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
 				continue
 			}
-
-			// Check repos in suborg but not in ruleset
-			for repo := range suborgRepos {
-				if !rulesetRepos[repo] {
-					t.Errorf("repo %q is in suborg %s but missing from ruleset %q repository_name.include",
-						repo, suborgName+".yml", rs.Name)
-				}
+			t.Fatalf("reading %s: %v", dir, err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yml") {
+				continue
 			}
-
-			// Check repos in ruleset but not in suborg
-			for repo := range rulesetRepos {
-				if !suborgRepos[repo] {
-					t.Errorf("repo %q is in ruleset %q repository_name.include but missing from suborg %s",
-						repo, rs.Name, suborgName+".yml")
+			data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+			if err != nil {
+				t.Fatalf("reading %s/%s: %v", sub, entry.Name(), err)
+			}
+			var f struct {
+				Rulesets []ruleset `json:"rulesets"`
+			}
+			if err := yaml.Unmarshal(data, &f); err != nil {
+				t.Fatalf("parsing %s/%s: %v", sub, entry.Name(), err)
+			}
+			for _, rs := range f.Rulesets {
+				if rs.Conditions.RepositoryName != nil {
+					t.Errorf("%s/%s ruleset %q sets conditions.repository_name; repo-scoped rulesets must not", sub, entry.Name(), rs.Name)
 				}
 			}
 		}

@@ -10,3 +10,49 @@
 suborgrepos:
   - reading-stone
   - snake-eyes
+
+# Branch ruleset for code repos — strict default-branch protection.
+# Repo-scoped (one ruleset per repo, created by safe-settings) because
+# org-level rulesets need GitHub Team and zero-dot-force is on Free.
+# Repo-level override files may add further rulesets; safe-settings merges
+# them with this one by name.
+rulesets:
+  - name: "safe-settings: code repos"
+    target: branch
+    enforcement: active
+
+    conditions:
+      ref_name:
+        include:
+          - "~DEFAULT_BRANCH"
+        exclude: []
+
+    rules:
+      # Restrict creation of refs matching the default branch pattern.
+      # Prevents recreating the default branch if deleted.
+      - type: creation
+
+      # Prevent deletion of the default branch.
+      - type: deletion
+
+      # Prevent force pushes to the default branch.
+      - type: non_fast_forward
+
+      # Pull request requirements.
+      # Baseline: 1 approver, dismiss stale reviews, code owner review,
+      # last push approval.
+      - type: pull_request
+        parameters:
+          required_approving_review_count: 1
+          dismiss_stale_reviews_on_push: true
+          require_code_owner_review: true
+          require_last_push_approval: true
+          required_review_thread_resolution: false
+
+      # Preserve any status checks configured outside of safe-settings
+      # (e.g., via individual repo workflow configurations).
+      - type: required_status_checks
+        parameters:
+          strict_required_status_checks_policy: true
+          required_status_checks:
+            - context: "{{EXTERNALLY_DEFINED}}"

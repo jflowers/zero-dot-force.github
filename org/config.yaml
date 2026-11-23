@@ -21,8 +21,8 @@ orgs:
       - jpower432
       - trevor-vaughan
       - tyraziel
-      - yvonnedevlinrh
       - uf-divisor
+      - yvonnedevlinrh
 
     # Repos managed by peribolos (--fix-repos)
     repos:
@@ -59,8 +59,8 @@ orgs:
           - hbraswelrh
           - jpower432
           - trevor-vaughan
-          - yvonnedevlinrh
           - uf-divisor
+          - yvonnedevlinrh
         maintainers:
           - em-redhat
           - jflowers

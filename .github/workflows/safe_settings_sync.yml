@@ -125,10 +125,14 @@ jobs:
           fi
           # --- Workaround for upstream check_suite bug ---
           #
-          # safe-settings v2.1.18 crashes in full-sync mode because
-          # handleResults accesses payload.check_suite which is
-          # undefined outside the webhook flow. The sync itself
-          # completes; only the Check Run reporting fails.
+          # safe-settings v2.1.18's Settings.handleResults reports via a
+          # Check Run / PR comment, reading payload.check_suite, which is
+          # undefined outside the webhook flow, so full-sync crashes after
+          # the plugins ran. Catching that crash also swallowed every
+          # plugin ERROR result, so failed syncs reported success.
+          #
+          # Instead, replace handleResults: log the results and record
+          # whether any plugin returned an ERROR, then fail the step.
           #
           # Upstream issue: github-community-projects/safe-settings#818
           # Upstream fix:   github-community-projects/safe-settings#1018
@@ -140,37 +144,38 @@ jobs:
           # ---
           cat > full-sync-patched.js << 'ENDPATCH'
           const appFn = require('./')
+          const Settings = require('./lib/settings')
           const { FULL_SYNC_NOP } = require('./lib/env')
           const { createProbot } = require('probot')
+
+          const failures = []
+
+          // Workaround: github-community-projects/safe-settings#818
+          Settings.prototype.handleResults = async function () {
+            const results = (this.results || []).filter(Boolean)
+            this.log.info(`Sync results: ${JSON.stringify(results, null, 2)}`)
+            for (const res of results) {
+              if (res.type === 'ERROR') {
+                failures.push(`${res.plugin} ${res.repo}: ${res.action && res.action.msg}`)
+              }
+            }
+            for (const err of this.errors || []) {
+              failures.push(`${err.plugin} ${err.repo}: ${err.msg}`)
+            }
+          }
 
           async function performFullSync (appFn, nop) {
             const probot = createProbot()
             probot.log.info(`Starting full sync with NOP=${nop}`)
-            try {
-              const app = appFn(probot, {})
-              const settings = await app.syncInstallation(nop)
-              if (settings.errors && settings.errors.length > 0) {
-                probot.log.error('Errors occurred during full sync.')
-                process.exit(1)
+            const app = appFn(probot, {})
+            await app.syncInstallation(nop)
+            if (failures.length > 0) {
+              for (const f of failures) {
+                process.stdout.write(`::error::${f.replace(/\r?\n/g, ' ')}\n`)
               }
-              probot.log.info('Full sync completed successfully.')
-            } catch (error) {
-              // Workaround: github-community-projects/safe-settings#818
-              // In full-sync mode (CLI/GHA), handleResults tries to
-              // access payload.check_run.check_suite which does not
-              // exist outside the webhook flow. The sync completes
-              // and results are logged; only the Check Run reporting
-              // fails. Safe to skip.
-              if (String(error).includes("Cannot read properties of undefined (reading 'check_suite')")) {
-                probot.log.info(
-                  'check_suite reporting skipped (expected in full-sync mode). ' +
-                  'See: github-community-projects/safe-settings#818'
-                )
-                return
-              }
-              process.stdout.write(`Unexpected error during full sync: ${error}\n`)
               process.exit(1)
             }
+            probot.log.info('Full sync completed successfully.')
           }
 
           performFullSync(appFn, FULL_SYNC_NOP).catch((error) => {

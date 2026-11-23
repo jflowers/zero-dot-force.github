@@ -1,8 +1,8 @@
 # Repo override: reading-stone.
 #
 # reading-stone releases through its `release.yml` workflow
-# (workflow_dispatch with a `tag` input). The workflow creates the v*
-# tag itself, then stages the npm package from the `npm` environment via
+# (workflow_dispatch with a `tag` input), like gaze. The workflow creates
+# the v* tag itself, then stages the npm package from the `npm` environment via
 # npm trusted publishing. The npm trust relationship pins that workflow
 # filename and environment name.
 #
@@ -14,10 +14,13 @@
 # reading-stone that is not listed in this file.
 
 rulesets:
-  # Only the release workflow may create v* tags. People cannot create,
-  # delete, or move them; the GitHub Actions app is the sole bypass
-  # actor, so the workflow's GITHUB_TOKEN can create the release tag.
-  - name: version tags
+  # Release tags are immutable: once a v* tag exists it cannot be deleted
+  # or moved. Creation is allowed, so the release workflow's GITHUB_TOKEN
+  # can create the tag (GitHub does not accept the GitHub Actions app as a
+  # ruleset bypass actor). A hand-pushed tag publishes nothing: release.yml
+  # runs only on workflow_dispatch. Org admins may bypass to repair a bad
+  # tag. Matches gaze/dewey/replicator's `release-tag-protection`.
+  - name: release-tag-protection
     target: tag
     enforcement: active
 
@@ -28,13 +31,11 @@ rulesets:
         exclude: []
 
     bypass_actors:
-      # GitHub Actions app (GITHUB_TOKEN).
-      - actor_id: 15368
-        actor_type: Integration
+      - actor_id: null
+        actor_type: OrganizationAdmin
         bypass_mode: always
 
     rules:
-      - type: creation
       - type: deletion
       - type: non_fast_forward
 

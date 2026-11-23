@@ -1,0 +1,54 @@
+# Repo override: reading-stone.
+#
+# reading-stone releases through its `release.yml` workflow
+# (workflow_dispatch with a `tag` input). The workflow creates the v*
+# tag itself, then stages the npm package from the `npm` environment via
+# npm trusted publishing. The npm trust relationship pins that workflow
+# filename and environment name.
+#
+# Both settings below previously existed only as manual changes on the
+# repo; this file makes them declarative.
+#
+# NOTE: repo-scoped rulesets and environments are fully managed here.
+# safe-settings removes any repo-level ruleset or environment on
+# reading-stone that is not listed in this file.
+
+rulesets:
+  # Only the release workflow may create v* tags. People cannot create,
+  # delete, or move them; the GitHub Actions app is the sole bypass
+  # actor, so the workflow's GITHUB_TOKEN can create the release tag.
+  - name: version tags
+    target: tag
+    enforcement: active
+
+    conditions:
+      ref_name:
+        include:
+          - "refs/tags/v*"
+        exclude: []
+
+    bypass_actors:
+      # GitHub Actions app (GITHUB_TOKEN).
+      - actor_id: 15368
+        actor_type: Integration
+        bypass_mode: always
+
+    rules:
+      - type: creation
+      - type: deletion
+      - type: non_fast_forward
+
+environments:
+  # Gate for the release workflow's stage job. A dispatched run's ref is
+  # the branch it runs from (not the tag it creates), so deployments are
+  # limited to main. Each run needs a maintainer's approval.
+  - name: npm
+    wait_timer: 0
+    prevent_self_review: false
+    reviewers:
+      - type: User
+        id: 214084  # jflowers
+    deployment_branch_policy:
+      protected_branches: false
+      custom_branch_policies:
+        - main
